@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Water Quality Cockpit · Speedometer Telemetry</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #06090e;
+  --bg-panel: #0d131a;
+  --bg-card: #111a24;
+  --bezel-outer: #1c2633;
+  --bezel-inner: #0a0e14;
+  --border-line: #223244;
+  --text-main: #f0f6fc;
+  --text-dim: #768a9e;
+  --text-cyan: #00f0ff;
+  --speedo-cyan: #00f0ff;
+  --speedo-cyan-glow: rgba(0, 240, 255, 0.45);
+  --safe-green: #05ffa1;
+  --safe-glow: rgba(5, 255, 161, 0.45);
+  --warn-amber: #ffb703;
+  --warn-glow: rgba(255, 183, 3, 0.45);
+  --danger-red: #ff2a5f;
+  --danger-glow: rgba(255, 42, 95, 0.6);
+  --needle-red: #ff3344;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background-color: var(--bg-deep);
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.08) 0%, transparent 60%),
+    radial-gradient(circle at 50% 100%, rgba(255, 42, 95, 0.05) 0%, transparent 50%),
+    linear-gradient(45deg, #070a0f 25%, transparent 25%),
+    linear-gradient(-45deg, #070a0f 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #070a0f 75%),
+    linear-gradient(-45deg, transparent 75%, #070a0f 75%);
+  background-size: 100% 100%, 100% 100%, 12px 12px, 12px 12px, 12px 12px, 12px 12px;
+  background-position: 0 0, 0 0, 0 0, 6px 0, 6px -6px, 0px 6px;
+  color: var(--text-main);
+  font-family: 'Rajdhani', -apple-system, sans-serif;
+  min-height: 100vh;
+  padding: 16px 12px 40px;
+  display: flex;
+  justify-content: center;
+}
+
+.cluster-frame {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* TOP VISOR & HEADING */
+.cockpit-brow {
+  position: relative;
+  background: linear-gradient(180deg, #1f2c3a 0%, #101721 100%);
+  border: 1px solid var(--border-line);
+  border-bottom: 2px solid #00f0ff33;
+  border-radius: 20px 20px 8px 8px;
+  padding: 14px 22px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
+.cockpit-brow::before, .cockpit-brow::after {
+  content: '⬡';
+  font-size: 16px;
+  color: #486177;
+  position: absolute;
+  top: 10px;
+}
+.cockpit-brow::before { left: 10px; }
+.cockpit-brow::after { right: 10px; }
+
+.cluster-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.speedo-logo-icon {
+  width: 32px;
+  height: 32px;
+  fill: var(--text-cyan);
+  filter: drop-shadow(0 0 6px var(--speedo-cyan-glow));
+}
+.cluster-brand h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin: 0;
+  background: linear-gradient(90deg, #ffffff, #88cfff 70%, #00f0ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.cluster-brand .sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* SHIFT LIGHTS BAR (BIKE TACHOMETER SHIFT LIGHTS) */
+.shift-light-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #090e14;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #1c2a38;
+}
+.shift-lamp {
+  width: 14px;
+  height: 8px;
+  border-radius: 3px;
+  background: #17222d;
+  transition: all 0.2s ease;
+}
+.shift-lamp.active-green {
+  background: var(--safe-green);
+  box-shadow: 0 0 10px var(--safe-green);
+}
+.shift-lamp.active-amber {
+  background: var(--warn-amber);
+  box-shadow: 0 0 10px var(--warn-amber);
+}
+.shift-lamp.active-red {
+  background: var(--danger-red);
+  box-shadow: 0 0 12px var(--danger-red);
+  animation: lamp-pulse 0.4s infinite alternate;
+}
+@keyframes lamp-pulse {
+  from { opacity: 0.6; }
+  to { opacity: 1; filter: drop-shadow(0 0 12px var(--danger-red)); }
+}
+
+.telemetry-status-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: #091017;
+  border: 1px solid #1f3042;
+  color: var(--text-dim);
+}
+.status-pill.live {
+  border-color: var(--safe-green);
+  color: var(--safe-green);
+}
+.status-pill.live .status-dot {
+  background: var(--safe-green);
+  box-shadow: 0 0 8px var(--safe-green);
+}
+.status-pill.alert {
+  border-color: var(--danger-red);
+  color: var(--danger-red);
+}
+.status-pill.alert .status-dot {
+  background: var(--danger-red);
+  box-shadow: 0 0 8px var(--danger-red);
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+.clock-readout {
+  color: var(--text-cyan);
+  font-weight: bold;
+}
+
+/* MAIN SPEEDOMETER CONSOLE BODY */
+.cluster-body {
+  background: linear-gradient(180deg, #111a24 0%, #080c12 100%);
+  border: 2px solid var(--border-line);
+  border-top: none;
+  border-radius: 0 0 24px 24px;
+  padding: 24px 20px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0, 240, 255, 0.03);
+}
+
+/* TOP TELL-TALE WARNING LIGHTS */
+.tell-tales {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.tell-tale-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: #4b6277;
+  letter-spacing: 1px;
+}
+.tell-tale-lamp {
+  width: 32px;
+  height: 24px;
+  border-radius: 6px;
+  background: #090e14;
+  border: 1px solid #1c2836;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 11px;
+  transition: all 0.3s;
+}
+.tell-tale-lamp.neutral.on {
+  color: var(--safe-green);
+  border-color: var(--safe-green);
+  background: rgba(5, 255, 161, 0.12);
+  box-shadow: 0 0 12px var(--safe-glow);
+}
+.tell-tale-lamp.engine.on {
+  color: var(--danger-red);
+  border-color: var(--danger-red);
+  background: rgba(255, 42, 95, 0.15);
+  box-shadow: 0 0 14px var(--danger-glow);
+  animation: lamp-pulse 0.5s infinite alternate;
+}
+.tell-tale-lamp.telemetry.on {
+  color: var(--text-cyan);
+  border-color: var(--text-cyan);
+  background: rgba(0, 240, 255, 0.12);
+  box-shadow: 0 0 12px var(--speedo-cyan-glow);
+}
+.tell-tale-lamp.hazard.on {
+  color: var(--warn-amber);
+  border-color: var(--warn-amber);
+  background: rgba(255, 183, 3, 0.12);
+  box-shadow: 0 0 12px var(--warn-glow);
+}
+
+/* GRAND CENTRAL SPEEDOMETER & HEADS-UP UNIT */
+.center-cluster {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.speedo-hero-card {
+  background: radial-gradient(circle at 50% 45%, #152230 0%, #0c1219 75%);
+  border: 2px solid #203347;
+  border-radius: 20px;
+  padding: 24px 20px 20px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.7), inset 0 0 30px rgba(0, 240, 255, 0.05);
+}
+
+.speedo-hero-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--text-cyan), transparent);
+}
+
+.hero-gauges-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+/* SPEEDOMETER SVG DIAL */
+.dial-container {
+  position: relative;
+  width: 320px;
+  max-width: 100%;
+  aspect-ratio: 1 / 0.88;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dial-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* SPEEDOMETER NEEDLE ANIMATION */
+.speedo-needle {
+  transform-origin: 160px 150px;
+  transition: transform 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.25);
+  filter: drop-shadow(0 0 8px rgba(255, 50, 70, 0.8));
+}
+.speedo-needle-sub {
+  transform-origin: 110px 105px;
+  transition: transform 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.25);
+  filter: drop-shadow(0 0 6px rgba(255, 50, 70, 0.7));
+}
+
+/* DIGITAL READOUT INSIDE GAUGE */
+.speedo-digital-center {
+  position: absolute;
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  pointer-events: none;
+}
+.speedo-gear-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 38px;
+  background: #06090e;
+  border: 2px solid var(--text-cyan);
+  border-radius: 8px;
+  font-family: 'Orbitron', monospace;
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--text-cyan);
+  box-shadow: 0 0 14px var(--speedo-cyan-glow);
+  margin-bottom: 4px;
+}
+.speedo-gear-box.alert-gear {
+  border-color: var(--danger-red);
+  color: var(--danger-red);
+  box-shadow: 0 0 16px var(--danger-glow);
+  animation: lamp-pulse 0.4s infinite alternate;
+}
+.speedo-main-digits {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(48px, 9vw, 68px);
+  font-weight: 900;
+  line-height: 0.9;
+  font-style: italic;
+  letter-spacing: -2px;
+  color: #ffffff;
+  text-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+}
+.speedo-unit-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: var(--text-cyan);
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+.speedo-status-banner {
+  margin-top: 14px;
+  width: 100%;
+  max-width: 600px;
+  background: #070c12;
+  border: 1px solid #1a2a3a;
+  border-radius: 12px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.banner-verdict-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: var(--safe-green);
+  text-transform: uppercase;
+}
+.banner-verdict-title.bad {
+  color: var(--danger-red);
+}
+.banner-verdict-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+/* 5 INDIVIDUAL SENSOR SPEEDOMETERS GRID */
+.sensors-cluster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.sensor-speedo-card {
+  background: radial-gradient(circle at 50% 40%, #15222f 0%, #0d141d 85%);
+  border: 1px solid var(--border-line);
+  border-radius: 16px;
+  padding: 16px 14px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  transition: transform 0.2s, border-color 0.2s;
+}
+.sensor-speedo-card:hover {
+  transform: translateY(-2px);
+  border-color: #314d68;
+}
+.sensor-speedo-card.card-alert {
+  border-color: rgba(255, 42, 95, 0.6);
+  box-shadow: 0 0 15px rgba(255, 42, 95, 0.2);
+}
+
+.sub-gauge-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px 6px;
+  border-bottom: 1px solid #1c2b3a;
+  margin-bottom: 6px;
+}
+.sub-gauge-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #d8e5f2;
+}
+.sub-gauge-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(5, 255, 161, 0.12);
+  color: var(--safe-green);
+  border: 1px solid rgba(5, 255, 161, 0.3);
+}
+.sub-gauge-badge.bad {
+  background: rgba(255, 42, 95, 0.15);
+  color: var(--danger-red);
+  border-color: rgba(255, 42, 95, 0.4);
+}
+.sub-gauge-badge.off {
+  background: #17222c;
+  color: var(--text-dim);
+  border-color: #273644;
+}
+
+.sub-dial-container {
+  position: relative;
+  width: 220px;
+  aspect-ratio: 1 / 0.88;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sub-dial-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.sub-digital-center {
+  position: absolute;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.sub-main-digits {
+  font-family: 'Orbitron', monospace;
+  font-size: 32px;
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1;
+  color: #ffffff;
+}
+.sub-unit-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.sub-gauge-footer {
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #162432;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.safe-zone-readout {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.spark-telemetry {
+  width: 100%;
+  height: 32px;
+  margin-top: 4px;
+  background: rgba(6, 10, 16, 0.6);
+  border-radius: 4px;
+  border: 1px solid #182635;
+}
+
+/* ECU TUNING & BLYNK CONNECTION PANEL */
+.ecu-panel {
+  margin-top: 24px;
+  background: linear-gradient(180deg, #131c26 0%, #0b1118 100%);
+  border: 1px solid #1f3042;
+  border-radius: 16px;
+  padding: 18px 22px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.ecu-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.ecu-panel-header h3 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin: 0;
+  color: #d1e2f2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ecu-panel-header h3 span {
+  color: var(--text-cyan);
+}
+
+.ecu-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+.ecu-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  flex: 1 1 200px;
+}
+.ecu-field input, .ecu-field select {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  padding: 9px 12px;
+  background: #080d13;
+  color: #fff;
+  border: 1px solid #233547;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.ecu-field input:focus, .ecu-field select:focus {
+  border-color: var(--text-cyan);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+.bike-btn {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 11px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.bike-btn-primary {
+  background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+  color: #fff;
+  box-shadow: 0 0 15px rgba(0, 198, 255, 0.4);
+}
+.bike-btn-primary:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 22px rgba(0, 198, 255, 0.7);
+  transform: translateY(-1px);
+}
+.bike-btn-ghost {
+  background: #0e1620;
+  color: #a4bcd1;
+  border: 1px solid #283c50;
+}
+.bike-btn-ghost:hover {
+  background: #152230;
+  color: #fff;
+  border-color: #3d5872;
+}
+.bike-btn-sweep {
+  background: linear-gradient(135deg, #ff3344 0%, #ba001b 100%);
+  color: #fff;
+  box-shadow: 0 0 14px rgba(255, 51, 68, 0.4);
+}
+.bike-btn-sweep:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 20px rgba(255, 51, 68, 0.7);
+}
+
+.ecu-hint {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11.5px;
+  color: #5d758c;
+  margin: 12px 0 0;
+  line-height: 1.4;
+}
+
+/* SOUND & EXTRA TOGGLES */
+.cluster-footer-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding: 0 4px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: #4b6277;
+}
+
+@media (max-width: 768px) {
+  .cockpit-brow { flex-direction: column; align-items: stretch; }
+  .telemetry-status-box { justify-content: space-between; }
+  .speedo-status-banner { flex-direction: column; align-items: flex-start; text-align: left; }
+  .sensors-cluster-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="cluster-frame">
+  <!-- TOP COCKPIT VISOR / BROW -->
+  <header class="cockpit-brow">
+    <div class="cluster-brand">
+      <svg class="speedo-logo-icon" viewBox="0 0 24 24">
+        <path d="M12 2C6.48 2 2 6.48 2 12c0 3.32 1.63 6.26 4.13 8.05l1.45-1.45C5.55 17.15 4.3 14.73 4.3 12c0-4.25 3.45-7.7 7.7-7.7s7.7 3.45 7.7 7.7c0 2.73-1.25 5.15-3.28 6.6l1.45 1.45C20.37 18.26 22 15.32 22 12c0-5.52-4.48-10-10-10zm-1 5v6.2l3.6 2.16.75-1.23-2.85-1.69V7h-1.5z"/>
+      </svg>
+      <div>
+        <h1>AQUA-METRIX // TFT CLUSTER</h1>
+        <div class="sub">High-Speed Water Quality Telemetry Console</div>
+      </div>
+    </div>
+
+    <!-- TACHOMETER SHIFT LIGHTS (SUPERBIKE STYLE) -->
+    <div class="shift-light-bar" id="shiftLights" title="Telemetry Purity Shift Lights">
+      <div class="shift-lamp" id="sl-0"></div>
+      <div class="shift-lamp" id="sl-1"></div>
+      <div class="shift-lamp" id="sl-2"></div>
+      <div class="shift-lamp" id="sl-3"></div>
+      <div class="shift-lamp" id="sl-4"></div>
+      <div class="shift-lamp" id="sl-5"></div>
+      <div class="shift-lamp" id="sl-6"></div>
+      <div class="shift-lamp" id="sl-7"></div>
+    </div>
+
+    <!-- TELEMETRY STATUS -->
+    <div class="telemetry-status-box">
+      <div class="status-pill" id="statusPill">
+        <span class="status-dot"></span>
+        <span id="statusText">DEMO ACTIVE</span>
+      </div>
+      <div class="clock-readout" id="clockDisplay">--:--:--</div>
+    </div>
+  </header>
+
+  <!-- CLUSTER BODY -->
+  <main class="cluster-body">
+
+    <!-- TELL-TALE WARNING LAMPS (MOTORCYCLE CLUSTER STYLE) -->
+    <section class="tell-tales" aria-label="Warning Lights">
+      <div class="tell-tale-item">
+        <div class="tell-tale-lamp telemetry on" id="lampTlm" title="ESP32 Telemetry Link">TLM</div>
+        <span>LINK</span>
+      </div>
+      <div class="tell-tale-item">
+        <div class="tell-tale-lamp neutral on" id="lampNeutral" title="Safe Cruise Mode">N</div>
+        <span>SAFE</span>
+      </div>
+      <div class="tell-tale-item">
+        <div class="tell-tale-lamp engine" id="lampEngine" title="Water Contamination Hazard">ENG</div>
+        <span>CHECK</span>
+      </div>
+      <div class="tell-tale-item">
+        <div class="tell-tale-lamp hazard" id="lampHazard" title="Threshold Alert">!</div>
+        <span>LIMIT</span>
+      </div>
+    </section>
+
+    <!-- GRAND MASTER SPEEDOMETER: OVERALL WATER PURITY SCORE -->
+    <section class="center-cluster">
+      <div class="speedo-hero-card">
+        <div class="hero-gauges-layout">
+          <div class="dial-container">
+            <svg class="dial-svg" viewBox="0 0 320 280">
+              <defs>
+                <linearGradient id="mainTrackGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#00f0ff"/>
+                  <stop offset="70%" stop-color="#05ffa1"/>
+                  <stop offset="90%" stop-color="#ffb703"/>
+                  <stop offset="100%" stop-color="#ff2a5f"/>
+                </linearGradient>
+                <filter id="glowEffect" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <!-- Outer Chrome Rim -->
+              <circle cx="160" cy="150" r="138" fill="none" stroke="#162330" stroke-width="6"/>
+              <circle cx="160" cy="150" r="132" fill="#080e15" stroke="#223344" stroke-width="2"/>
+
+              <!-- Background Dial Arc (260 deg: 140° to 400°) -->
+              <path d="M 54.3 233.6 A 120 120 0 1 1 265.7 233.6" fill="none" stroke="#101a24" stroke-width="14" stroke-linecap="round"/>
+
+              <!-- Active Gauge Arc -->
+              <path id="heroArc" d="M 54.3 233.6 A 120 120 0 1 1 265.7 233.6" fill="none" stroke="url(#mainTrackGrad)" stroke-width="14" stroke-linecap="round" stroke-dasharray="544.5" stroke-dashoffset="0" filter="url(#glowEffect)"/>
+
+              <!-- Radial Ticks & Speed Numbers -->
+              <g id="heroTicks" stroke="#2d4257" stroke-width="2"></g>
+              <g id="heroLabels" font-family="'Orbitron', sans-serif" font-size="11" fill="#718ba3" text-anchor="middle" font-weight="700"></g>
+
+              <!-- Center Hub & Needle -->
+              <g id="heroNeedleGroup" class="speedo-needle" style="transform: rotate(-130deg);">
+                <!-- Needle Blade -->
+                <polygon points="156.5,150 163.5,150 161,38 159,38" fill="#ff3344" />
+                <line x1="160" y1="150" x2="160" y2="34" stroke="#ffffff" stroke-width="1.5" />
+                <!-- Glowing tip -->
+                <circle cx="160" cy="38" r="3.5" fill="#00f0ff" filter="url(#glowEffect)"/>
+              </g>
+
+              <!-- Needle Pivot Hub -->
+              <circle cx="160" cy="150" r="18" fill="#141e28" stroke="#33475b" stroke-width="3"/>
+              <circle cx="160" cy="150" r="8" fill="#ff3344"/>
+              <circle cx="160" cy="150" r="3" fill="#ffffff"/>
+            </svg>
+
+            <!-- Digital LCD Center Display -->
+            <div class="speedo-digital-center">
+              <div class="speedo-gear-box" id="gearIndicator">6</div>
+              <div class="speedo-main-digits" id="heroSpeedDigits">98</div>
+              <div class="speedo-unit-label">PURITY INDEX // SPEED</div>
+            </div>
+          </div>
+
+          <!-- Bottom Status Banner -->
+          <div class="speedo-status-banner">
+            <div>
+              <div class="banner-verdict-title" id="verdictHeadline">ALL SYSTEMS OPTIMAL</div>
+              <p class="banner-verdict-desc" id="verdictDetails">All 5 sensor parameters are inside safe biological thresholds.</p>
+            </div>
+            <button class="bike-btn bike-btn-sweep" id="btnSweep" title="Run motorcycle cluster needle sweep animation">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+              IGNITION SWEEP
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 SENSOR SPEEDOMETERS SUB-CLUSTER -->
+    <section class="sensors-cluster-grid" id="sensorsGrid"></section>
+
+    <!-- ECU / BLYNK HARDWARE TELEMETRY INTERFACE -->
+    <section class="ecu-panel">
+      <div class="ecu-panel-header">
+        <h3><span>ECU LINK</span> // ESP32 HARDWARE TELEMETRY</h3>
+        <span style="font-family:'Share Tech Mono', monospace; font-size:12px; color:#5c7891;">OBD-II PROTOCOL · V0-V4 PINS</span>
+      </div>
+
+      <div class="ecu-grid">
+        <label class="ecu-field">
+          Blynk Auth Token
+          <input id="tokenInput" type="password" placeholder="Paste ESP32 Device Auth Token" autocomplete="off">
+        </label>
+        <label class="ecu-field">
+          Blynk Server Cluster
+          <select id="serverSelect">
+            <option value="blynk.cloud">blynk.cloud (Global)</option>
+            <option value="blr1.blynk.cloud">blr1.blynk.cloud (India)</option>
+            <option value="sgp1.blynk.cloud">sgp1.blynk.cloud (Singapore)</option>
+            <option value="fra1.blynk.cloud">fra1.blynk.cloud (Frankfurt)</option>
+            <option value="ny3.blynk.cloud">ny3.blynk.cloud (New York)</option>
+          </select>
+        </label>
+        <button class="bike-btn bike-btn-primary" id="btnConnect">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg>
+          IGNITE LIVE FEED
+        </button>
+        <button class="bike-btn bike-btn-ghost" id="btnDemo">SIMULATE (DEMO)</button>
+      </div>
+      <p class="ecu-hint">
+        Credentials are encrypted in local storage. Sensor mapping: V0 pH, V1 Temperature (°C), V2 Turbidity (NTU), V3 Dissolved Oxygen (mg/L), V4 TDS (ppm). Telemetry updates every 2,000ms.
+      </p>
+    </section>
+
+    <div class="cluster-footer-bar">
+      <span>WATER QUALITY TELEMETRY FIRMWARE v2.4</span>
+      <span id="tripSampleCounter">TRIP SAMPLES: 00000</span>
+      <span>CLUSTER STATUS: READY</span>
+    </div>
+  </main>
+</div>
+
+<script>
+// SENSOR SPECIFICATIONS
+const SENSORS = [
+  { id: 'v0', name: 'pH Level', unit: 'pH', min: 0, max: 14, lo: 6.5, hi: 8.5, dec: 1, step: 2 },
+  { id: 'v1', name: 'Water Temp', unit: '°C', min: 0, max: 50, lo: 20, hi: 35, dec: 1, step: 10 },
+  { id: 'v2', name: 'Turbidity', unit: 'NTU', min: 0, max: 100, lo: 0, hi: 50, dec: 0, step: 20 },
+  { id: 'v3', name: 'Dissolved O₂', unit: 'mg/L', min: 0, max: 14, lo: 5, hi: 14, dec: 1, step: 2 },
+  { id: 'v4', name: 'Total TDS', unit: 'ppm', min: 0, max: 1000, lo: 0, hi: 500, dec: 0, step: 200 }
+];
+
+const hist = {};
+SENSORS.forEach(s => hist[s.id] = []);
+const $ = id => document.getElementById(id);
+
+let mode = 'demo';
+let timer = null;
+let sampleCounter = 0;
+let demoData = { v0: 7.4, v1: 26.5, v2: 18, v3: 7.8, v4: 240 };
+let isSweeping = false;
+
+// 1. GENERATE HERO SPEEDOMETER TICKS & LABELS
+function setupHeroSpeedometer() {
+  const ticksG = $('heroTicks');
+  const labelsG = $('heroLabels');
+  let ticksHtml = '';
+  let labelsHtml = '';
+
+  const cx = 160, cy = 150, rOuter = 126, rInner = 114, rMinor = 120, rLabel = 100;
+  const startAngle = 140; // bottom-left
+  const span = 260; // to 400° (bottom-right)
+
+  for (let i = 0; i <= 20; i++) {
+    const fraction = i / 20;
+    const angleDeg = startAngle + fraction * span;
+    const angleRad = (angleDeg * Math.PI) / 180;
+    const cos = Math.cos(angleRad);
+    const sin = Math.sin(angleRad);
+
+    const isMajor = i % 2 === 0;
+    const rIn = isMajor ? rInner : rMinor;
+
+    const x1 = cx + rOuter * cos;
+    const y1 = cy + rOuter * sin;
+    const x2 = cx + rIn * cos;
+    const y2 = cy + rIn * sin;
+
+    const strokeColor = fraction > 0.85 ? '#ff2a5f' : (fraction > 0.65 ? '#ffb703' : '#3d5872');
+    ticksHtml += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${strokeColor}" stroke-width="${isMajor ? 2.5 : 1.2}"/>`;
+
+    if (isMajor) {
+      const lx = cx + rLabel * cos;
+      const ly = cy + rLabel * sin + 4;
+      const speedVal = Math.round(fraction * 100);
+      labelsHtml += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}">${speedVal}</text>`;
+    }
+  }
+
+  ticksG.innerHTML = ticksHtml;
+  labelsG.innerHTML = labelsHtml;
+}
+
+// 2. BUILD SUB-SPEEDOMETER GAUGES FOR ALL 5 SENSORS
+function createSubSpeedoGaugeSvg(s) {
+  const cx = 110, cy = 105, r = 78;
+  const startAngle = 140, span = 260;
+
+  // Arc path math helper
+  function polarToCartesian(c_x, c_y, radius, angleInDegrees) {
+    const rad = (angleInDegrees * Math.PI) / 180;
+    return {
+      x: c_x + radius * Math.cos(rad),
+      y: c_y + radius * Math.sin(rad)
+    };
+  }
+
+  function describeArc(c_x, c_y, radius, startA, endA) {
+    const p1 = polarToCartesian(c_x, c_y, radius, startA);
+    const p2 = polarToCartesian(c_x, c_y, radius, endA);
+    const largeArcFlag = endA - startA <= 180 ? '0' : '1';
+    return `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+
+  const bgArc = describeArc(cx, cy, r, 140, 400);
+
+  // Safe zone arc
+  const fSafeStart = Math.max(0, (s.lo - s.min) / (s.max - s.min));
+  const fSafeEnd = Math.min(1, (s.hi - s.min) / (s.max - s.min));
+  const safeStartAngle = startAngle + fSafeStart * span;
+  const safeEndAngle = startAngle + fSafeEnd * span;
+  const safeArc = describeArc(cx, cy, r, safeStartAngle, safeEndAngle);
+
+  // Danger/Redline arc
+  let dangerArc = '';
+  if (s.id === 'v0') { // pH danger at extremes
+    dangerArc = describeArc(cx, cy, r, startAngle, startAngle + ((6.0 - s.min)/(s.max - s.min))*span) + ' ' + describeArc(cx, cy, r, startAngle + ((9.0 - s.min)/(s.max - s.min))*span, 400);
+  } else if (s.id === 'v3') { // DO danger at low
+    dangerArc = describeArc(cx, cy, r, startAngle, safeStartAngle);
+  } else { // Turbidity, Temp, TDS danger at high
+    dangerArc = describeArc(cx, cy, r, safeEndAngle, 400);
+  }
+
+  // Generate tick lines & numbers
+  let ticksSvg = '';
+  let labelsSvg = '';
+  const is14Scale = (s.max - s.min === 14);
+  const totalTicks = is14Scale ? 14 : 10;
+  for (let i = 0; i <= totalTicks; i++) {
+    const fraction = i / totalTicks;
+    const aDeg = startAngle + fraction * span;
+    const isMajor = is14Scale ? (i % 2 === 0) : (i % 2 === 0);
+    const pOut = polarToCartesian(cx, cy, 82, aDeg);
+    const pIn = polarToCartesian(cx, cy, isMajor ? 72 : 76, aDeg);
+    ticksSvg += `<line x1="${pOut.x.toFixed(1)}" y1="${pOut.y.toFixed(1)}" x2="${pIn.x.toFixed(1)}" y2="${pIn.y.toFixed(1)}" stroke="${isMajor ? '#435e7a' : '#223545'}" stroke-width="${isMajor ? 2 : 1}"/>`;
+
+    if (isMajor) {
+      const pTxt = polarToCartesian(cx, cy, 60, aDeg);
+      const valRaw = s.min + fraction * (s.max - s.min);
+      const val = Math.round(valRaw);
+      labelsSvg += `<text x="${pTxt.x.toFixed(1)}" y="${(pTxt.y + 3).toFixed(1)}" fill="#607d9b" font-family="'Orbitron', sans-serif" font-size="8" font-weight="700" text-anchor="middle">${val}</text>`;
+    }
+  }
+
+  return `
+    <article class="sensor-speedo-card" id="card-${s.id}">
+      <div class="sub-gauge-header">
+        <span class="sub-gauge-title">${s.name}</span>
+        <span class="sub-gauge-badge" id="badge-${s.id}">OK</span>
+      </div>
+
+      <div class="sub-dial-container">
+        <svg class="sub-dial-svg" viewBox="0 0 220 190">
+          <!-- Rim -->
+          <circle cx="${cx}" cy="${cy}" r="92" fill="#0b121a" stroke="#1d2d3e" stroke-width="2"/>
+          
+          <!-- Background track -->
+          <path d="${bgArc}" fill="none" stroke="#14212e" stroke-width="8" stroke-linecap="round"/>
+          
+          <!-- Safe Zone (Green) -->
+          <path d="${safeArc}" fill="none" stroke="#05ffa1" stroke-width="8" stroke-opacity="0.8" stroke-linecap="butt"/>
+          
+          <!-- Danger Arc (Red) -->
+          ${dangerArc ? `<path d="${dangerArc}" fill="none" stroke="#ff2a5f" stroke-width="8" stroke-opacity="0.75" stroke-linecap="butt"/>` : ''}
+
+          <!-- Ticks & Labels -->
+          <g>${ticksSvg}</g>
+          <g>${labelsSvg}</g>
+
+          <!-- Needle -->
+          <g id="needle-${s.id}" class="speedo-needle-sub" style="transform: rotate(-130deg);">
+            <polygon points="107.5,${cy} 112.5,${cy} 111,26 109,26" fill="#ff3344" />
+            <line x1="${cx}" y1="${cy}" x2="${cx}" y2="24" stroke="#ffffff" stroke-width="1.2" />
+            <circle cx="${cx}" cy="27" r="2.5" fill="#00f0ff" />
+          </g>
+
+          <!-- Center Cap -->
+          <circle cx="${cx}" cy="${cy}" r="12" fill="#141e28" stroke="#33475b" stroke-width="2"/>
+          <circle cx="${cx}" cy="${cy}" r="5" fill="#ff3344"/>
+        </svg>
+
+        <div class="sub-digital-center">
+          <div class="sub-main-digits" id="val-${s.id}">--</div>
+          <div class="sub-unit-label">${s.unit || 'INDEX'}</div>
+        </div>
+      </div>
+
+      <div class="sub-gauge-footer">
+        <div class="safe-zone-readout">
+          <span>SAFE BAND:</span>
+          <span style="color:#05ffa1;">${s.lo} – ${s.hi} ${s.unit}</span>
+        </div>
+        <svg class="spark-telemetry" id="spark-${s.id}" viewBox="0 0 200 32" preserveAspectRatio="none"></svg>
+      </div>
+    </article>
+  `;
+}
+
+function renderGrid() {
+  $('sensorsGrid').innerHTML = SENSORS.map(s => createSubSpeedoGaugeSvg(s)).join('');
+}
+
+// 3. DRAW SPARKLINE TELEMETRY
+function updateSparkline(s) {
+  const h = hist[s.id];
+  if (h.length < 2) return;
+  const pts = h.map((v, i) => {
+    const x = (i / 29) * 200;
+    const clampedV = Math.min(Math.max(v, s.min), s.max);
+    const y = 30 - ((clampedV - s.min) / (s.max - s.min)) * 26;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+
+  const strokeColor = (s.lastOk === false) ? '#ff2a5f' : '#00f0ff';
+  $('spark-' + s.id).innerHTML = `
+    <polyline points="${pts}" fill="none" stroke="${strokeColor}" stroke-width="2" vector-effect="non-scaling-stroke"/>
+  `;
+}
+
+// 4. MAIN RENDER CYCLE
+function renderDashboard(data) {
+  if (isSweeping) return;
+
+  sampleCounter++;
+  $('tripSampleCounter').textContent = `TRIP SAMPLES: ${String(sampleCounter).padStart(5, '0')}`;
+
+  const badSensors = [];
+  let purityScoreSum = 0;
+
+  SENSORS.forEach(s => {
+    const rawVal = parseFloat(data[s.id]);
+    const isOffline = isNaN(rawVal) || (s.id === 'v1' && rawVal < -100);
+    const badge = $('badge-' + s.id);
+    const card = $('card-' + s.id);
+    const valElem = $('val-' + s.id);
+    const needleElem = $('needle-' + s.id);
+
+    if (isOffline) {
+      valElem.textContent = '--';
+      badge.textContent = 'NO SIGNAL';
+      badge.className = 'sub-gauge-badge off';
+      needleElem.style.transform = 'rotate(-130deg)';
+      s.lastOk = false;
+      return;
+    }
+
+    // Determine safe/in-spec state
+    const isOk = rawVal >= s.lo && rawVal <= s.hi &&
+                 !(s.id === 'v2' && rawVal >= 50) &&
+                 !(s.id === 'v4' && rawVal >= 500) &&
+                 !(s.id === 'v3' && rawVal <= 5);
+
+    s.lastOk = isOk;
+    valElem.textContent = rawVal.toFixed(s.dec);
+
+    // Calculate needle angle (-130deg to +130deg over min..max)
+    const fraction = Math.min(Math.max((rawVal - s.min) / (s.max - s.min), 0), 1);
+    const needleDeg = -130 + fraction * 260;
+    needleElem.style.transform = `rotate(${needleDeg.toFixed(1)}deg)`;
+
+    if (isOk) {
+      badge.textContent = 'IN SPEC';
+      badge.className = 'sub-gauge-badge';
+      card.classList.remove('card-alert');
+      purityScoreSum += 20; // 5 sensors * 20 = 100 max
+    } else {
+      const msg = rawVal < s.lo || (rawVal <= s.lo && s.id === 'v3') ? 'LOW' : 'HI-LIMIT';
+      badge.textContent = msg;
+      badge.className = 'sub-gauge-badge bad';
+      card.classList.add('card-alert');
+      badSensors.push(s.name);
+      // Partial credit based on deviation
+      const dev = Math.abs(rawVal - ((s.lo + s.hi)/2)) / (s.max - s.min);
+      purityScoreSum += Math.max(0, 20 * (1 - dev * 1.5));
+    }
+
+    // History & Sparkline
+    const h = hist[s.id];
+    h.push(rawVal);
+    if (h.length > 30) h.shift();
+    updateSparkline(s);
+  });
+
+  // Calculate Overall Master Speedometer (Water Purity Index)
+  const masterScore = Math.round(Math.min(Math.max(purityScoreSum, 0), 100));
+  $('heroSpeedDigits').textContent = masterScore;
+
+  // Master Needle Sweep (-130deg to +130deg)
+  const masterFraction = masterScore / 100;
+  const masterNeedleDeg = -130 + masterFraction * 260;
+  $('heroNeedleGroup').style.transform = `rotate(${masterNeedleDeg.toFixed(1)}deg)`;
+
+  // Arc stroke offset (Total arc length ~544.5)
+  const totalArcLen = 544.5;
+  const arcOffset = totalArcLen * (1 - masterFraction);
+  $('heroArc').style.strokeDashoffset = arcOffset.toFixed(1);
+
+  // Digital Gear Indicator (Motorcycle Cluster Style)
+  const gearElem = $('gearIndicator');
+  if (badSensors.length === 0) {
+    gearElem.textContent = masterScore > 90 ? '6' : '5';
+    gearElem.classList.remove('alert-gear');
+  } else {
+    gearElem.textContent = badSensors.length > 2 ? '!' : (masterScore > 60 ? '3' : '1');
+    gearElem.classList.add('alert-gear');
+  }
+
+  // Update Tell-tale lights
+  $('lampNeutral').className = 'tell-tale-lamp neutral ' + (badSensors.length === 0 ? 'on' : '');
+  $('lampEngine').className = 'tell-tale-lamp engine ' + (badSensors.length > 0 ? 'on' : '');
+  $('lampHazard').className = 'tell-tale-lamp hazard ' + (badSensors.length > 0 ? 'on' : '');
+
+  // Update Shift Light LEDs (8 levels)
+  const numActiveShiftLamps = Math.round(masterFraction * 8);
+  for (let i = 0; i < 8; i++) {
+    const lamp = $('sl-' + i);
+    lamp.className = 'shift-lamp';
+    if (badSensors.length > 0 && i >= 6) {
+      lamp.className = 'shift-lamp active-red';
+    } else if (i < numActiveShiftLamps) {
+      if (i < 4) lamp.className = 'shift-lamp active-green';
+      else if (i < 6) lamp.className = 'shift-lamp active-amber';
+      else lamp.className = 'shift-lamp active-red';
+    }
+  }
+
+  // Update Status Banner
+  const vTitle = $('verdictHeadline');
+  const vDetails = $('verdictDetails');
+  if (badSensors.length === 0) {
+    vTitle.textContent = 'ALL SYSTEMS OPTIMAL // RIDE READY';
+    vTitle.className = 'banner-verdict-title';
+    vDetails.textContent = 'All 5 telemetry parameters are in optimal safe drinking / biological range.';
+  } else {
+    vTitle.textContent = `ALERT: HAZARD DETECTED (${badSensors.length})`;
+    vTitle.className = 'banner-verdict-title bad';
+    vDetails.textContent = `Limits exceeded on: ${badSensors.join(', ')}. Water quality degraded!`;
+  }
+
+  // Update Clock
+  $('clockDisplay').textContent = new Date().toLocaleTimeString();
+}
+
+// 5. MOTORCYCLE IGNITION NEEDLE SWEEP ANIMATION
+function runIgnitionSweep() {
+  isSweeping = true;
+
+  // 1. Light up all shift lamps and tell tales
+  for (let i = 0; i < 8; i++) {
+    const lamp = $('sl-' + i);
+    lamp.className = 'shift-lamp ' + (i < 4 ? 'active-green' : (i < 6 ? 'active-amber' : 'active-red'));
+  }
+  $('lampNeutral').className = 'tell-tale-lamp neutral on';
+  $('lampEngine').className = 'tell-tale-lamp engine on';
+  $('lampHazard').className = 'tell-tale-lamp hazard on';
+
+  // 2. Sweep all needles to MAX (+130deg)
+  $('heroNeedleGroup').style.transform = 'rotate(130deg)';
+  $('heroArc').style.strokeDashoffset = '0';
+  $('heroSpeedDigits').textContent = '100';
+  $('gearIndicator').textContent = '8';
+
+  SENSORS.forEach(s => {
+    const needle = $('needle-' + s.id);
+    if (needle) needle.style.transform = 'rotate(130deg)';
+    const valElem = $('val-' + s.id);
+    if (valElem) valElem.textContent = '888';
+  });
+
+  // 3. Sweep back to min and resume real telemetry
+  setTimeout(() => {
+    $('heroNeedleGroup').style.transform = 'rotate(-130deg)';
+    SENSORS.forEach(s => {
+      const needle = $('needle-' + s.id);
+      if (needle) needle.style.transform = 'rotate(-130deg)';
+    });
+
+    setTimeout(() => {
+      isSweeping = false;
+      if (mode === 'demo') demoTick();
+      else liveTick();
+    }, 600);
+  }, 800);
+}
+
+// 6. TELEMETRY TICKERS
+function setStatus(text, type) {
+  $('statusText').textContent = text.toUpperCase();
+  const pill = $('statusPill');
+  pill.className = 'status-pill ' + (type || '');
+  $('lampTlm').className = 'tell-tale-lamp telemetry ' + (type === 'live' ? 'on' : '');
+}
+
+function demoTick() {
+  SENSORS.forEach(s => {
+    let v = demoData[s.id] + (Math.random() - 0.5) * (s.max - s.min) * 0.035;
+    // Occasional hazard spike (5% chance)
+    if (Math.random() < 0.05) {
+      v += (Math.random() - 0.5) * (s.max - s.min) * 0.3;
+    }
+    demoData[s.id] = Math.min(Math.max(v, s.min), s.max);
+  });
+  renderDashboard(demoData);
+}
+
+async function liveTick() {
+  const token = $('tokenInput').value.trim();
+  const server = $('serverSelect').value;
+  if (!token) {
+    setStatus('NO TOKEN', 'alert');
+    return;
+  }
+  const url = `https://${server}/external/api/get?token=${encodeURIComponent(token)}&${SENSORS.map(s => s.id).join('&')}`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(response.status === 400 ? 'INVALID TOKEN' : 'SERVER ERR ' + response.status);
+    const data = await response.json();
+    renderDashboard(data);
+    setStatus('ESP32 LIVE', 'live');
+  } catch (err) {
+    setStatus(err.message === 'Failed to fetch' ? 'DISCONNECTED' : err.message, 'alert');
+  }
+}
+
+function startTelemetry(newMode) {
+  clearInterval(timer);
+  mode = newMode;
+  SENSORS.forEach(s => hist[s.id] = []);
+
+  if (mode === 'demo') {
+    setStatus('DEMO ACTIVE', '');
+    demoTick();
+    timer = setInterval(demoTick, 2000);
+  } else {
+    setStatus('CONNECTING…', '');
+    liveTick();
+    timer = setInterval(liveTick, 2000);
+  }
+}
+
+// 7. INITIALIZATION & EVENT LISTENERS
+setupHeroSpeedometer();
+renderGrid();
+
+try {
+  const savedToken = localStorage.getItem('wq-token');
+  const savedServer = localStorage.getItem('wq-server');
+  if (savedToken) $('tokenInput').value = savedToken;
+  if (savedServer) $('serverSelect').value = savedServer;
+} catch (e) {}
+
+$('btnConnect').onclick = () => {
+  const token = $('tokenInput').value.trim();
+  if (!token) {
+    setStatus('ENTER TOKEN', 'alert');
+    return;
+  }
+  try {
+    localStorage.setItem('wq-token', token);
+    localStorage.setItem('wq-server', $('serverSelect').value);
+  } catch (e) {}
+  startTelemetry('live');
+};
+
+$('btnDemo').onclick = () => startTelemetry('demo');
+$('btnSweep').onclick = () => runIgnitionSweep();
+
+// Live clock ticker
+setInterval(() => {
+  $('clockDisplay').textContent = new Date().toLocaleTimeString();
+}, 1000);
+
+// Initial Ignition Sweep on startup!
+runIgnitionSweep();
+setTimeout(() => {
+  startTelemetry($('tokenInput').value ? 'live' : 'demo');
+}, 1200);
+</script>
+</body>
+</html>
